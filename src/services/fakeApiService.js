@@ -55,7 +55,6 @@ class FakeApiService {
    */
   generateRealisticData(timestamp = new Date()) {
     const hour = timestamp.getHours();
-    const minute = timestamp.getMinutes();
     const dayOfYear = Math.floor((timestamp - new Date(timestamp.getFullYear(), 0, 0)) / 86400000);
     
     // Base values dengan variasi musiman

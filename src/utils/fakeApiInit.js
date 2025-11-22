@@ -67,8 +67,10 @@ export const stopFakeApi = () => {
 };
 
 // Export for manual control
-export default {
+const fakeApiInit = {
   start: startFakeApi,
   stop: stopFakeApi,
   initialize: initializeFakeApi
 };
+
+export default fakeApiInit;

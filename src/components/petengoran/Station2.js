@@ -81,7 +81,7 @@ const parseCustomTimestamp = (ts) => {
   if (!ts || typeof ts !== 'string') return ts;
   const match = ts.match(/^(\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
   if (!match) return ts;
-  const [_, dd, mm, yy, h, m, s] = match;
+  const [, dd, mm, yy, h, m, s] = match;
   return `20${yy}-${mm}-${dd}T${h}:${m}:${s}`;
 };
 
@@ -153,7 +153,7 @@ const Station2 = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [tableData, setTableData] = useState([]);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [gaugeData, setGaugeData] = useState({
     humidity: 0,
     temperature: 0,
