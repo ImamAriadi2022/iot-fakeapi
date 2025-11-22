@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, ButtonGroup, Col, Container, Row, Table } from 'react-bootstrap';
+import apiClient from '../../services/apiClient';
 import TrendChart, { resampleTimeSeriesWithMeanFill } from "./chart";
 import AirPressureGauge from './status/AirPressure';
 import HumidityGauge from './status/HumidityGauge';
@@ -164,43 +165,23 @@ const Station2 = () => {
     airpressure: 0,
   });
 
-  // Get API URL based on filter
-  const getApiUrl = (filterType) => {
-    switch (filterType) {
-      case '1d':
-        return process.env.REACT_APP_API_PETENGORAN_DAILY_STATION2;
-      case '7d':
-        return process.env.REACT_APP_API_PETENGORAN_DAILY_STATION2; // Use daily for 7 days and filter client-side
-      case '1m':
-        return process.env.REACT_APP_API_PETENGORAN_RESAMPLE15M_STATION2;
-      default:
-        return process.env.REACT_APP_API_PETENGORAN_DAILY_STATION2;
-    }
-  };
-
-  // Fetch data dari API berdasarkan filter
+  // Fetch data dari fake API berdasarkan filter
   const fetchData = async () => {
-    // Hapus setLoading(true) agar tidak ada loading indicator visual
     setError(null);
     try {
-      const url = getApiUrl(filter);
-      if (!url) throw new Error(`No API URL configured for filter: ${filter}`);
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      const mapped = Array.isArray(data.data?.result) ? data.data.result.map(mapApiData) : [];
-      mapped.sort((a, b) => {
-        if (a.timestamp === 'error' || a.timestamp === 'alat rusak' || b.timestamp === 'error' || b.timestamp === 'alat rusak') {
-          return (a.timestamp === 'error' || a.timestamp === 'alat rusak') ? 1 : -1;
-        }
-        const timeA = new Date(a.timestamp);
-        const timeB = new Date(b.timestamp);
-        return timeB - timeA;
-      });
-      setAllData(mapped);
+      console.log('[Petengoran Station2] Fetching data from fake API...');
+      const result = await apiClient.getData('petengoran');
+      console.log('Petengoran Station2 Fake API Response:', result);
+      
+      data = data
+        .map(mapApiData)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // terbaru di atas
+      data = data.slice(0, 100); // ambil 100 data terbaru untuk performa
+      setAllData(data);
     } catch (err) {
-      setError(`Failed to fetch data: ${err.message}`);
+      setError(`Failed to fetch fake data: ${err.message}`);
       setAllData([]);
+      console.error('Petengoran Station2 fake API error:', err);
     }
     // Hapus finally block setLoading(false)
   };

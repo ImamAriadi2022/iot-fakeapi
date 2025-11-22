@@ -2,9 +2,17 @@ import { saveAs } from 'file-saver';
 import { useEffect, useState } from 'react';
 import { Button, Col, Container, Form, Modal, Row } from 'react-bootstrap';
 
-// Endpoint mengikuti Station1.js dan Station2.js
-const API_STATION1 = process.env.REACT_APP_API_PETENGORAN_RESAMPLE15M_STATION1;
-const API_STATION2 = process.env.REACT_APP_API_PETENGORAN_RESAMPLE15M_STATION2;
+// Helper function to get station data from localStorage
+function getStationData(station) {
+  try {
+    const key = station === 'Station 1' ? 'fakeData_Petengoran_Station1' : 'fakeData_Petengoran_Station2';
+    const data = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('[Petengoran Download] Error loading data from localStorage:', error);
+    return [];
+  }
+}
 
 // Fungsi parsing timestamp agar bisa dibandingkan dengan filter tanggal
 const parseTimestamp = (ts) => {
@@ -172,8 +180,8 @@ const createFormattedCSV = (data, stationType) => {
 
 const Download = () => {
   const [selectedStation, setSelectedStation] = useState('Station 1');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState('2025-06-01');
+  const [endDate, setEndDate] = useState('2025-11-22');
   const [fileFormat, setFileFormat] = useState('json');
   const [showLogin, setShowLogin] = useState(false);
   const [username, setUsername] = useState('');
@@ -182,6 +190,8 @@ const Download = () => {
   const [station2Data, setStation2Data] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dataReady, setDataReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   // Hanya fitur resampling
   const [enableResampling, setEnableResampling] = useState(false);
@@ -190,32 +200,27 @@ const Download = () => {
 
   // Fetch data dari API saat komponen mount
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        // Hapus setLoading(true) untuk menghilangkan delay visual
         setDataReady(false);
-
-        // Fetch Station 1
-        const res1 = await fetch(API_STATION1);
-        const json1 = res1.ok ? await res1.json() : { data: { result: [] } };
-        const station1Data = Array.isArray(json1.data?.result) ? json1.data.result.map(mapStation1) : [];
-        setStation1Data(station1Data);
-
-        // Fetch Station 2
-        const res2 = await fetch(API_STATION2);
-        const json2 = res2.ok ? await res2.json() : { data: { result: [] } };
-        const station2Data = Array.isArray(json2.data?.result) ? json2.data.result.map(mapStation2) : [];
-        setStation2Data(station2Data);
-
+        // Load data from localStorage (populated by fake API)
+        const data1 = getStationData('Station 1');
+        const data2 = getStationData('Station 2');
+        console.log('[Petengoran Download] Loaded data from localStorage:', {
+          station1: data1.length,
+          station2: data2.length
+        }, 'records');
+        setStation1Data(data1);
+        setStation2Data(data2);
         setDataReady(true);
       } catch (error) {
+        console.error('[Petengoran Download] Error loading data:', error);
         setStation1Data([]);
         setStation2Data([]);
         setDataReady(false);
       }
-      // Hapus finally block setLoading(false)
     };
-    fetchData();
+    loadData();
   }, []);
 
   const handleDownload = () => {
@@ -361,10 +366,12 @@ const Download = () => {
 
   const handleLoginSubmit = () => {
     if (username === 'admin' && password === 'admin123') {
+      setIsAuthenticated(true);
+      setLoginError('');
       setShowLogin(false);
       processDownload();
     } else {
-      alert('Invalid credentials!');
+      setLoginError('Invalid credentials! Use admin/admin123');
     }
   };
 
@@ -563,6 +570,14 @@ const Download = () => {
           <Modal.Title>Login Required</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {loginError && (
+            <div className="alert alert-danger" role="alert">
+              {loginError}
+            </div>
+          )}
+          <div className="mb-3">
+            <small className="text-muted">Use credentials: admin / admin123</small>
+          </div>
           <Form>
             <Form.Group controlId="formUsername" className="mb-3">
               <Form.Label>Username</Form.Label>

@@ -2,8 +2,22 @@ import { saveAs } from 'file-saver';
 import { useEffect, useState } from 'react';
 import { Button, Col, Container, Form, Modal, Row } from 'react-bootstrap';
 
-// API endpoint untuk Station 1
-const API_KALIMANTAN_TOPIC1 = process.env.REACT_APP_API_KALIMANTAN_ONEMONTH_TOPIC1;
+// Use fake API instead of real API
+// const API_KALIMANTAN_TOPIC1 = process.env.REACT_APP_API_KALIMANTAN_ONEMONTH_TOPIC1;
+
+// Ambil data dari localStorage (populated by fake API)
+function getStationData(station) {
+  let key = '';
+  if (station === 'Station 1') key = 'station1_data';
+  if (station === 'Station 2') key = 'station2_data';
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
 
 // Helper: Wind direction mapping
 const windDirectionToEnglish = (dir) => {
@@ -192,12 +206,14 @@ function resampleTimeSeriesWithMeanFill(data, intervalMinutes, fields) {
 }
 
 const Download = () => {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState('2025-06-01');
+  const [endDate, setEndDate] = useState('2025-11-22');
   const [fileFormat, setFileFormat] = useState('json');
   const [showLogin, setShowLogin] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [station1Data, setStation1Data] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dataReady, setDataReady] = useState(false);
@@ -207,23 +223,21 @@ const Download = () => {
   const [resampleInterval, setResampleInterval] = useState(15);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        // Hapus setLoading(true) untuk menghilangkan delay visual
         setDataReady(false);
-        const res = await fetch(API_KALIMANTAN_TOPIC1);
-        if (!res.ok) throw new Error('Failed to fetch data');
-        const json = await res.json();
-        const mapped = Array.isArray(json.result) ? json.result.map(mapStation1) : [];
-        setStation1Data(mapped);
+        // Load data from localStorage (populated by fake API)
+        const data = getStationData('Station 1');
+        console.log('[Kalimantan Download] Loaded data from localStorage:', data.length, 'records');
+        setStation1Data(data);
         setDataReady(true);
       } catch (error) {
+        console.error('[Kalimantan Download] Error loading data:', error);
         setStation1Data([]);
         setDataReady(false);
       }
-      // Hapus finally block setLoading(false)
     };
-    fetchData();
+    loadData();
   }, []);
 
   const handleDownload = () => {
@@ -282,10 +296,12 @@ const Download = () => {
 
   const handleLoginSubmit = () => {
     if (username === 'admin' && password === 'admin123') {
+      setIsAuthenticated(true);
+      setLoginError('');
       setShowLogin(false);
       processDownload();
     } else {
-      alert('Invalid credentials!');
+      setLoginError('Invalid credentials! Use admin/admin123');
     }
   };
 
@@ -435,6 +451,14 @@ const Download = () => {
           <Modal.Title>Login Required</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {loginError && (
+            <div className="alert alert-danger" role="alert">
+              {loginError}
+            </div>
+          )}
+          <div className="mb-3">
+            <small className="text-muted">Use credentials: admin / admin123</small>
+          </div>
           <Form>
             <Form.Group controlId="formUsername" className="mb-3">
               <Form.Label>Username</Form.Label>

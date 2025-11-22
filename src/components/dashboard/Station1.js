@@ -74,42 +74,41 @@ const Station1 = () => {
     }
   }, []);
 
-  // Fetch data dari Fake API setiap 10 detik
+  // Load data dari localStorage dan fetch dari Fake API
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        console.log("[Station1] Fetching data from fake API...");
-        const result = await apiClient.getData('petengoran');
-        console.log("Fake API Response:", JSON.stringify(result, null, 2));
-
-        const mapped = result.map(mapApiData);
-
+        // Load data dari localStorage dulu (yang sudah di-populate oleh fake API service)
         let local = [];
         try {
           local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
+          console.log(`[Station1] Loaded ${local.length} records from localStorage`);
         } catch (e) {
           local = [];
         }
 
-        const timestamps = new Set(local.map(item => item.timestamp));
-        const combined = [...local];
-        mapped.forEach(item => {
-          if (!timestamps.has(item.timestamp)) {
-            combined.push(item);
-            timestamps.add(item.timestamp);
-            console.log("New fake data added to localStorage:", item);
-          }
-        });
+        // Jika data masih kosong, fetch dari API
+        if (local.length === 0) {
+          console.log("[Station1] localStorage empty, fetching from fake API...");
+          const result = await apiClient.getData('petengoran');
+          const mapped = result.map(mapApiData);
+          local = mapped;
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(local));
+        }
 
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(combined));
-        setAllData(combined);
+        setAllData(local);
       } catch (error) {
-        console.error("Fake API error:", error);
+        console.error("Data loading error:", error);
       }
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 10000); // 10 detik
+    loadData();
+    
+    // Refresh data setiap 5 menit untuk update terbaru
+    const interval = setInterval(() => {
+      loadData();
+    }, 300000); // 5 menit
+    
     return () => clearInterval(interval);
   }, []);
 

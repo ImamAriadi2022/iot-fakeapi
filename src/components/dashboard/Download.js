@@ -20,25 +20,46 @@ function getStationData(station) {
 
 // Helper validasi tanggal (format ISO atau DD-MM-YY HH:mm:ss)
 function parseDate(str) {
-  if (!str) return null;
-  // ISO
-  const iso = new Date(str);
-  if (!isNaN(iso)) return iso;
-  // DD-MM-YY HH:mm:ss
-  const [datePart, timePart] = str.split(' ');
-  if (!datePart || !timePart) return null;
-  const [day, month, year] = datePart.split('-');
-  if (!day || !month || !year) return null;
-  const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
-  const mm = month.padStart(2, '0');
-  const dd = day.padStart(2, '0');
-  return new Date(`${fullYear}-${mm}-${dd}T${timePart}`);
+  if (!str || typeof str !== 'string') return null;
+  
+  // Coba ISO format dulu (YYYY-MM-DDTHH:mm:ss atau YYYY-MM-DD HH:mm:ss)
+  let iso = new Date(str);
+  if (!isNaN(iso.getTime())) return iso;
+  
+  // Coba format DD-MM-YY HH:mm:ss
+  if (str.includes(' ') && str.includes('-')) {
+    const [datePart, timePart] = str.split(' ');
+    if (datePart && timePart) {
+      const [day, month, year] = datePart.split('-');
+      if (day && month && year) {
+        const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+        const mm = month.padStart(2, '0');
+        const dd = day.padStart(2, '0');
+        
+        const isoString = `${fullYear}-${mm}-${dd}T${timePart}`;
+        const parsedDate = new Date(isoString);
+        
+        if (!isNaN(parsedDate.getTime())) return parsedDate;
+      }
+    }
+  }
+  
+  // Coba format alternatif
+  try {
+    const parsed = new Date(str.replace(' ', 'T'));
+    if (!isNaN(parsed.getTime())) return parsed;
+  } catch (e) {
+    // ignore
+  }
+  
+  console.warn('Failed to parse timestamp:', str);
+  return null;
 }
 
 const Download = () => {
   const [selectedStation, setSelectedStation] = useState('Station 1');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState('2025-06-01');
+  const [endDate, setEndDate] = useState('2025-11-22');
   const [fileFormat, setFileFormat] = useState('json');
   const [showRusak, setShowRusak] = useState(false);
   
@@ -47,28 +68,110 @@ const Download = () => {
   const [resampleInterval, setResampleInterval] = useState(15);
   const [resampleMethod, setResampleMethod] = useState('mean');
 
+  // Test function untuk debug
+  const testDataAccess = () => {
+    console.log('=== TESTING DATA ACCESS ===');
+    
+    // Test localStorage access
+    const s1Raw = localStorage.getItem('station1_data');
+    const s2Raw = localStorage.getItem('station2_data');
+    
+    console.log('Station1 raw exists:', !!s1Raw);
+    console.log('Station2 raw exists:', !!s2Raw);
+    
+    if (s1Raw) {
+      console.log('Station1 raw length:', s1Raw.length);
+      try {
+        const s1Data = JSON.parse(s1Raw);
+        console.log('Station1 parsed count:', s1Data.length);
+        
+        if (s1Data.length > 0) {
+          console.log('Station1 first item:', s1Data[0]);
+          console.log('Station1 last item:', s1Data[s1Data.length - 1]);
+          
+          // Test timestamp parsing
+          const firstTimestamp = s1Data[0].timestamp;
+          const parsedFirst = parseDate(firstTimestamp);
+          console.log('First timestamp parsing:', firstTimestamp, '->', parsedFirst);
+          
+          // Test date filtering
+          const testStart = new Date('2025-06-01');
+          const testEnd = new Date('2025-11-22');
+          console.log('Test date range:', testStart, 'to', testEnd);
+          
+          let matchCount = 0;
+          s1Data.slice(0, 10).forEach((item, i) => {
+            const parsed = parseDate(item.timestamp);
+            const inRange = parsed && parsed >= testStart && parsed <= testEnd;
+            console.log(`[${i}] ${item.timestamp} -> ${parsed ? parsed.toISOString() : 'INVALID'} -> ${inRange ? 'IN RANGE' : 'OUT OF RANGE'}`);
+            if (inRange) matchCount++;
+          });
+          
+          console.log('Sample match count (first 10):', matchCount);
+        }
+      } catch (e) {
+        console.error('Station1 parsing error:', e);
+      }
+    }
+    
+    // Test getStationData function
+    const functionResult = getStationData(selectedStation);
+    console.log('getStationData result:', functionResult.length, 'records');
+    
+    console.log('=== TEST COMPLETE ===');
+  };
+
   const handleDownload = () => {
+    console.log('🔽 Download started...');
+    
     // Validasi tanggal
     if (!startDate || !endDate) {
+      console.log('❌ No date range selected');
       setShowRusak(true);
       return;
     }
+    
+    console.log(`📅 Date range: ${startDate} to ${endDate}`);
+    console.log(`📊 Selected station: ${selectedStation}`);
+    
     const data = getStationData(selectedStation);
+    console.log(`📦 Raw data count: ${data.length}`);
+    
     if (!data.length) {
+      console.log('❌ No raw data found');
       setShowRusak(true);
       return;
     }
+    
+    // Log sample timestamps for debugging
+    console.log('🔍 Sample timestamps:');
+    data.slice(0, 5).forEach((item, i) => {
+      console.log(`[${i}] Original: "${item.timestamp}" (${typeof item.timestamp})`);
+      const parsed = parseDate(item.timestamp);
+      console.log(`[${i}] Parsed: ${parsed ? parsed.toISOString() : 'INVALID'}`);
+    });
     
     // Filter data by date
     const start = new Date(startDate);
     const end = new Date(endDate);
+    console.log(`🎯 Filter range: ${start.toISOString()} to ${end.toISOString()}`);
+    
     let filtered = data.filter(item => {
       const d = parseDate(item.timestamp);
-      return d && d >= start && d <= end;
+      const isValid = d && d >= start && d <= end;
+      
+      if (filtered.length < 5) { // Log first few filter results
+        console.log(`Filter check: "${item.timestamp}" -> ${d ? d.toISOString() : 'INVALID'} -> ${isValid ? 'INCLUDED' : 'EXCLUDED'}`);
+      }
+      
+      return isValid;
     });
+    
+    console.log(`✅ Filtered data count: ${filtered.length}`);
     
     // Jika ada data yang timestamp-nya null/invalid, atau hasil filter kosong, tampilkan alat rusak
     if (filtered.length === 0) {
+      console.log('❌ No data matches the selected date range');
       setShowRusak(true);
       return;
     }
@@ -96,14 +199,23 @@ const Download = () => {
     const baseFilename = `${selectedStation.replace(' ', '_').toLowerCase()}_data${resampleSuffix}`;
     
     // Download
-    if (fileFormat === 'json') {
-      const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
-      saveAs(blob, `${baseFilename}.json`);
-    } else if (fileFormat === 'csv') {
-      const worksheet = XLSX.utils.json_to_sheet(filtered);
-      const csv = XLSX.utils.sheet_to_csv(worksheet);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      saveAs(blob, `${baseFilename}.csv`);
+    console.log('💾 Starting download process...');
+    try {
+      if (fileFormat === 'json') {
+        const jsonString = JSON.stringify(filtered, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+        saveAs(blob, `${baseFilename}.json`);
+        console.log('✅ JSON download initiated');
+      } else if (fileFormat === 'csv') {
+        const worksheet = XLSX.utils.json_to_sheet(filtered);
+        const csv = XLSX.utils.sheet_to_csv(worksheet);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        saveAs(blob, `${baseFilename}.csv`);
+        console.log('✅ CSV download initiated');
+      }
+    } catch (downloadError) {
+      console.error('❌ Download failed:', downloadError);
+      alert('Download failed: ' + downloadError.message);
     }
   };
 
@@ -246,24 +358,58 @@ const Download = () => {
 
       <Row className="mt-4">
         <Col className="text-center">
-          <Button
-            variant="success"
-            onClick={handleDownload}
-            className="px-5 py-2 fw-bold shadow-lg"
-          >
-            Download Data
-          </Button>
+          <div className="d-flex gap-2 justify-content-center flex-wrap">
+            <Button
+              variant="info"
+              onClick={testDataAccess}
+              className="px-3 py-2 fw-bold shadow mb-2"
+            >
+              🔍 Test Data Access
+            </Button>
+            <Button
+              variant="warning"
+              onClick={() => {
+                setStartDate('2025-06-01');
+                setEndDate('2025-11-22');
+                setSelectedStation('Station 1');
+                console.log('✅ Set to optimal date range: 2025-06-01 to 2025-11-22, Station 1');
+              }}
+              className="px-3 py-2 fw-bold shadow mb-2"
+            >
+              🎯 Set Optimal Range
+            </Button>
+            <Button
+              variant="success"
+              onClick={handleDownload}
+              className="px-4 py-2 fw-bold shadow-lg mb-2"
+            >
+              📥 Download Data
+            </Button>
+          </div>
         </Col>
       </Row>
 
-      {/* Modal Alat Rusak */}
+      {/* Modal Debug Info */}
       <Modal show={showRusak} onHide={() => setShowRusak(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Alat Rusak</Modal.Title>
+          <Modal.Title>Download Debug Info</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="text-center" style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2em' }}>
-            Data tidak tersedia atau tanggal tidak valid!
+            No data available for the selected date range!
+          </div>
+          <hr />
+          <div style={{ fontSize: '0.9em', textAlign: 'left' }}>
+            <strong>Debug Information:</strong><br/>
+            • Selected Station: {selectedStation}<br/>
+            • Date Range: {startDate} to {endDate}<br/>
+            • Raw Data Count: {getStationData(selectedStation).length}<br/>
+            <br/>
+            <strong>Suggestions:</strong><br/>
+            • Try clicking "🔍 Test Data Access" button for detailed analysis<br/>
+            • Check if data exists in localStorage<br/>
+            • Verify date range covers available data period<br/>
+            • Open Developer Console for detailed logs
           </div>
         </Modal.Body>
       </Modal>

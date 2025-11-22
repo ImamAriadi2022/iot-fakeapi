@@ -29,7 +29,27 @@ class ApiClient {
   async getData(location = 'petengoran') {
     if (this.useFakeData) {
       console.log(`[FAKE API] Fetching data for location: ${location}`);
-      return await fakeApiService.getLatestData();
+      
+      // Untuk station2, berikan sedikit variasi data
+      const baseData = await fakeApiService.getLatestData();
+      
+      if (location === 'station2') {
+        // Tambahkan variasi untuk station2
+        return baseData.map(item => ({
+          ...item,
+          humidity: Math.max(30, Math.min(95, item.humidity + (Math.random() - 0.5) * 5)),
+          temperature: Math.max(15, Math.min(40, item.temperature + (Math.random() - 0.5) * 2)),
+          AirPressure: Math.max(990, Math.min(1030, item.AirPressure + (Math.random() - 0.5) * 10)),
+          windSpeed: Math.max(0, Math.min(50, item.windSpeed + (Math.random() - 0.5) * 3)),
+          rainfall: Math.max(0, item.rainfall + (Math.random() - 0.5) * 2),
+          angle: (item.angle + Math.floor(Math.random() * 60 - 30) + 360) % 360,
+          suhuAir: Math.max(15, Math.min(35, item.suhuAir + (Math.random() - 0.5) * 1.5)),
+          irradiation: Math.max(0, item.irradiation + (Math.random() - 0.5) * 100),
+          bmpTemperature: Math.max(15, Math.min(40, item.bmpTemperature + (Math.random() - 0.5) * 1.5))
+        }));
+      }
+      
+      return baseData;
     } else {
       // Real API call
       const endpoint = this.apiEndpoints[location];

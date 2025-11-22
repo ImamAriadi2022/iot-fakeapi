@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Table, ButtonGroup, Button } from 'react-bootstrap';
+import { useEffect, useRef, useState } from 'react';
+import { Button, ButtonGroup, Col, Container, Row, Table } from 'react-bootstrap';
 import TrendChart from "./chart";
 
 // Import komponen status environment (gauge)
-import TemperatureGauge from './status/TemperaturGauge';
 import HumidityGauge from './status/HumidityGauge';
-import RainfallGauge from './status/Rainfall';
-import WindSpeedGauge from './status/WindSpeed';
 import IrradiationGauge from './status/Irradiation';
+import RainfallGauge from './status/Rainfall';
+import TemperatureGauge from './status/TemperaturGauge';
 import WindDirectionGauge from './status/WindDirection';
+import WindSpeedGauge from './status/WindSpeed';
 
-const API_URL = process.env.REACT_APP_API_PETENGORAN_GET_TOPIC5;
+import apiClient from '../../services/apiClient';
+
 const LOCAL_STORAGE_KEY = "station2_data";
 
 // Mapping function mirip Station1 Sebesi
@@ -62,33 +63,41 @@ const Station2 = () => {
     }
   }, []);
 
-  // Fetch data dari API setiap 10 detik
-  const fetchData = async () => {
+  // Load data dari localStorage dan fake API
+  const loadData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL);
-      const json = await response.json();
-      const result = Array.isArray(json) ? json : (Array.isArray(json.result) ? json.result : []);
-      const mapped = result.map(mapApiData);
-
-      if (mapped.length > 0) {
-        setAllData(mapped);
-        setServerError(false);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mapped));
-      } else {
-        setAllData([]);
-        setServerError(true);
+      // Load dari localStorage dulu (sudah di-populate oleh fake API service)
+      let local = [];
+      try {
+        local = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
+        console.log(`[Station2] Loaded ${local.length} records from localStorage`);
+      } catch (e) {
+        local = [];
       }
+
+      // Jika data masih kosong, fetch dari fake API
+      if (local.length === 0) {
+        console.log("[Station2] localStorage empty, fetching from fake API...");
+        const result = await apiClient.getData('station2');
+        const mapped = result.map(mapApiData);
+        local = mapped;
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(local));
+      }
+
+      setAllData(local);
+      setServerError(false);
       setLoading(false);
     } catch (error) {
       setLoading(false);
       setServerError(true);
+      console.error("Station2 data loading error:", error);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    intervalRef.current = setInterval(fetchData, 10000);
+    loadData();
+    intervalRef.current = setInterval(loadData, 300000); // 5 menit
     return () => clearInterval(intervalRef.current);
   }, []);
 

@@ -9,26 +9,45 @@ class FakeApiService {
     this.isRunning = false;
     this.intervalId = null;
     this.dataHistory = [];
-    this.maxHistorySize = 1000; // Simpan maksimal 1000 data points
+    this.maxHistorySize = 50000; // Simpan maksimal 50000 data points (cukup untuk 6 bulan dengan interval 15 menit)
     
     // Inisialisasi dengan beberapa data historis
     this.initializeHistoricalData();
   }
 
   /**
-   * Generate data historis untuk 7 hari terakhir
+   * Generate data historis dari Juni 2025 hingga sekarang
    */
   initializeHistoricalData() {
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    console.log('🚀 Starting initializeHistoricalData...');
     
-    // Generate data setiap 30 menit untuk 7 hari terakhir
-    for (let time = sevenDaysAgo; time <= now; time.setMinutes(time.getMinutes() + 30)) {
+    const now = new Date();
+    const startDate = new Date('2025-06-01T00:00:00'); // Mulai dari 1 Juni 2025
+    
+    // Clear existing data
+    this.dataHistory = [];
+    
+    // Generate data setiap 15 menit dari Juni 2025 hingga sekarang
+    console.log(`Generating historical data from ${startDate.toISOString()} to ${now.toISOString()}`);
+    
+    let count = 0;
+    for (let time = new Date(startDate); time <= now; time.setMinutes(time.getMinutes() + 15)) {
       const data = this.generateRealisticData(new Date(time));
       this.dataHistory.push(data);
+      count++;
+      
+      // Log progress every 1000 records
+      if (count % 1000 === 0) {
+        console.log(`📊 Generated ${count} records so far...`);
+      }
     }
     
-    console.log(`Initialized with ${this.dataHistory.length} historical data points`);
+    console.log(`✅ Initialized with ${this.dataHistory.length} historical data points`);
+    
+    // Update localStorage dengan data lengkap untuk download
+    console.log('💾 Updating localStorage...');
+    this.updateLocalStorage();
+    console.log('✅ localStorage update complete');
   }
 
   /**
@@ -118,7 +137,7 @@ class FakeApiService {
     
     this.isRunning = true;
     
-    // Generate data baru setiap 30 detik
+    // Generate data baru setiap 15 menit untuk simulasi realistic
     this.intervalId = setInterval(() => {
       const newData = this.generateRealisticData();
       this.dataHistory.push(newData);
@@ -128,10 +147,15 @@ class FakeApiService {
         this.dataHistory = this.dataHistory.slice(-this.maxHistorySize);
       }
       
+      // Update localStorage setiap 5 menit (10 data points)
+      if (this.dataHistory.length % 10 === 0) {
+        this.updateLocalStorage();
+      }
+      
       console.log('New fake data generated:', newData);
-    }, 30000); // 30 detik
+    }, 900000); // 15 menit (900000 ms)
     
-    console.log('Fake API service started - generating data every 30 seconds');
+    console.log('Fake API service started - generating data every 15 minutes');
   }
 
   /**
@@ -219,11 +243,106 @@ class FakeApiService {
   }
 
   /**
+   * Update localStorage untuk kompatibilitas dengan Download component
+   */
+  updateLocalStorage() {
+    try {
+      // Update station1_data untuk dashboard
+      const station1Data = this.dataHistory.map(item => ({
+        timestamp: item.timestamp,
+        humidity: item.humidity,
+        temperature: item.temperature,
+        airPressure: item.AirPressure,
+        windspeed: item.windSpeed,
+        rainfall: item.rainfall,
+        windDirection: this.angleToDirection(item.angle),
+        waterTemperature: item.suhuAir
+      }));
+      
+      localStorage.setItem('station1_data', JSON.stringify(station1Data));
+      
+      // Update station2_data dengan slight variations
+      const station2Data = this.dataHistory.map(item => ({
+        timestamp: item.timestamp,
+        humidity: Math.max(30, Math.min(95, item.humidity + (Math.random() - 0.5) * 5)),
+        temperature: Math.max(15, Math.min(40, item.temperature + (Math.random() - 0.5) * 2)),
+        airPressure: Math.max(990, Math.min(1030, item.AirPressure + (Math.random() - 0.5) * 10)),
+        windspeed: Math.max(0, Math.min(50, item.windSpeed + (Math.random() - 0.5) * 3)),
+        rainfall: Math.max(0, item.rainfall + (Math.random() - 0.5) * 2),
+        windDirection: this.angleToDirection((item.angle + Math.floor(Math.random() * 60 - 30) + 360) % 360),
+        waterTemperature: Math.max(15, Math.min(35, item.suhuAir + (Math.random() - 0.5) * 1.5))
+      }));
+      
+      localStorage.setItem('station2_data', JSON.stringify(station2Data));
+      
+      console.log(`Updated localStorage: Station1=${station1Data.length}, Station2=${station2Data.length} records`);
+    } catch (error) {
+      console.error('Error updating localStorage:', error);
+    }
+  }
+
+  /**
+   * Convert angle to wind direction text
+   */
+  angleToDirection(angle) {
+    const directions = [
+      'North', 'North-Northeast', 'Northeast', 'East-Northeast',
+      'East', 'East-Southeast', 'Southeast', 'South-Southeast',
+      'South', 'South-Southwest', 'Southwest', 'West-Southwest',
+      'West', 'West-Northwest', 'Northwest', 'North-Northwest'
+    ];
+    const index = Math.round(angle / 22.5) % 16;
+    return directions[index];
+  }
+
+  /**
    * Clear all data
    */
   clearAllData() {
     this.dataHistory = [];
+    localStorage.removeItem('station1_data');
+    localStorage.removeItem('station2_data');
     console.log('All fake data cleared');
+  }
+
+  /**
+   * Force re-initialization dengan data lengkap
+   */
+  forceInitialize() {
+    console.log('🔄 Force initializing fake API data...');
+    
+    // Stop current processes
+    this.stopRealTimeData();
+    
+    // Clear dan regenerate data
+    this.dataHistory = [];
+    
+    const now = new Date();
+    const startDate = new Date('2025-06-01T00:00:00');
+    
+    console.log(`Generating complete dataset from ${startDate.toISOString()} to ${now.toISOString()}`);
+    
+    let count = 0;
+    for (let time = new Date(startDate); time <= now; time.setMinutes(time.getMinutes() + 15)) {
+      const data = this.generateRealisticData(new Date(time));
+      this.dataHistory.push(data);
+      count++;
+      
+      // Log progress every 1000 records
+      if (count % 1000 === 0) {
+        console.log(`Generated ${count} records...`);
+      }
+    }
+    
+    console.log(`✅ Generated ${this.dataHistory.length} total records`);
+    
+    // Update localStorage immediately
+    this.updateLocalStorage();
+    
+    // Restart real-time updates
+    this.startRealTimeData();
+    
+    return this.dataHistory.length;
   }
 
   /**
@@ -234,7 +353,7 @@ class FakeApiService {
     const data = [];
     
     for (let i = 0; i < count; i++) {
-      const timestamp = new Date(now.getTime() - (count - i) * 30 * 60 * 1000); // 30 menit interval
+      const timestamp = new Date(now.getTime() - (count - i) * 15 * 60 * 1000); // 15 menit interval
       data.push(this.generateRealisticData(timestamp));
     }
     

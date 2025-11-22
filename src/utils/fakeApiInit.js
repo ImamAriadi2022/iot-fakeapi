@@ -12,27 +12,36 @@ export const initializeFakeApi = () => {
   const status = apiClient.getStatus();
   console.log('📊 API Client Status:', status);
   
-  // Generate some initial test data if needed
-  if (status.dataPoints < 50) {
-    console.log('📝 Generating initial test data...');
-    apiClient.generateTestData(50).then(() => {
-      console.log('✅ Initial test data generated');
-    }).catch(err => {
-      console.error('❌ Failed to generate initial data:', err);
-    });
-  }
+  // Generate comprehensive historical data from June 2025 to now
+  console.log('📝 Ensuring complete historical data from June 2025...');
   
-  // Start real-time updates if using fake data
+  // The fake API service already initializes with June-November 2025 data
+  // Just start real-time updates
   if (status.mode === 'FAKE') {
     console.log('⏰ Starting real-time data updates...');
     apiClient.startRealTimeUpdates();
+    
+    // Force immediate localStorage update
+    setTimeout(() => {
+      console.log('🔄 Forcing initial localStorage update...');
+      // This will be handled by the fake API service updateLocalStorage method
+    }, 2000);
   }
   
-  // Log every 30 seconds for monitoring
+  // Log every 5 minutes for monitoring
   const logInterval = setInterval(() => {
     const currentStatus = apiClient.getStatus();
     console.log(`📈 Fake API Status Update - Data Points: ${currentStatus.dataPoints}, Real-time: ${currentStatus.realTimeActive}`);
-  }, 30000);
+    
+    // Check localStorage status
+    try {
+      const station1Data = JSON.parse(localStorage.getItem('station1_data') || '[]');
+      const station2Data = JSON.parse(localStorage.getItem('station2_data') || '[]');
+      console.log(`💾 localStorage Status - Station1: ${station1Data.length}, Station2: ${station2Data.length} records`);
+    } catch (e) {
+      console.warn('💾 localStorage check failed:', e);
+    }
+  }, 300000); // 5 minutes
   
   // Cleanup function
   return () => {
