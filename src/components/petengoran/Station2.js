@@ -153,6 +153,7 @@ const Station2 = () => {
   const [filteredData, setFilteredData] = useState([]);
   const [tableData, setTableData] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [gaugeData, setGaugeData] = useState({
     humidity: 0,
     temperature: 0,
@@ -173,6 +174,7 @@ const Station2 = () => {
       const result = await apiClient.getData('petengoran');
       console.log('Petengoran Station2 Fake API Response:', result);
       
+      let data = Array.isArray(result) ? result : [];
       data = data
         .map(mapApiData)
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // terbaru di atas
